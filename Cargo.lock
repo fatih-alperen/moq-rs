@@ -1143,6 +1143,7 @@ name = "moq-pub"
 version = "0.8.3"
 dependencies = [
  "anyhow",
+ "byteorder",
  "bytes",
  "clap",
  "env_logger",
