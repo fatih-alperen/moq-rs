@@ -6,8 +6,7 @@ use std::cmp::max;
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::time;
-
-use byteorder::{ReadBytesExt, BigEndian, LittleEndian};
+use h264_reader::avcc::AvcDecoderConfigurationRecord;
 use std::io::{Read};
 
 
@@ -137,20 +136,14 @@ impl Media {
             mp4::BoxType::MdatBox => {
                 let track_id = self.current.take().context("missing moof")?;
                 let track = self.tracks.get_mut(&track_id).context("failed to find track")?;
+
+
+                let mut mdat_data = Vec::new();
+                reader.read_to_end(&mut mdat_data).context("Failed to read mdat data")?;
             
-                // Extract NAL units from `mdat`
-                let nal_units = extract_nal_units(&mut reader);
-                println!("{}",nal_units.len());
-            
-                for nal in nal_units {
-                    println!("Start parsing sei");
-                    if is_sei_nal(&nal) {
-                        let sei_messages = parse_sei_messages(&nal);
-                        for sei in sei_messages {
-                            println!("Parsed SEI: {:?}", sei);
-                        }
-                    }
-                }
+                let record = AvcDecoderConfigurationRecord::try_from(&mdat_data[..]).expect("Failed to parse AVC decoder configuration record");
+                let ctx = record.create_context().unwrap();
+                println!("{:#?}", &ctx);
             
                 // Publish the mdat atom
                 track.data(atom).context("failed to publish mdat")?;
@@ -285,50 +278,6 @@ impl Media {
         Ok(())
     }
     
-}
-
-
-pub fn extract_nal_units(reader: &mut Cursor<&Bytes>) -> Vec<Bytes> {
-    let mut nal_units = Vec::new();
-
-    while let Ok(nal_size) = reader.read_u32::<BigEndian>() {
-        
-        let bytes = nal_size.to_be_bytes();
-        println!("{:02X} {:02X} {:02X} {:02X}", bytes[0], bytes[1], bytes[2], bytes[3]);
-        
-        if nal_size as usize > reader.remaining() {
-            break;
-        }
-        let mut nal_data = vec![0; nal_size as usize];
-        reader.read_exact(&mut nal_data).ok();
-        nal_units.push(Bytes::from(nal_data));
-    }
-
-    nal_units
-}
-
-fn is_sei_nal(nal: &Bytes) -> bool {
-    let nal_type = nal[0] & 0x1F; // Extract NAL unit type for H.264
-    nal_type == 6 // H.264 SEI
-}
-
-fn parse_sei_messages(nal: &Bytes) -> Vec<String> {
-    let mut messages = Vec::new();
-    let mut cursor = Cursor::new(&nal[1..]); // Skip NAL header
-
-    while cursor.has_remaining() {
-        let payload_type = cursor.get_u8();
-        let payload_size = cursor.get_u8(); // Simplified; real parsing is more complex
-        let mut payload = vec![0; payload_size as usize];
-        cursor.read_exact(&mut payload).ok();
-
-        messages.push(format!(
-            "SEI Message: Type {}, Size {}, Data {:?}",
-            payload_type, payload_size, payload
-        ));
-    }
-
-    messages
 }
 
 
