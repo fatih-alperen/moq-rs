@@ -3,6 +3,7 @@ members = [
 	"moq-transport",
 	"moq-relay-ietf",
 	"moq-pub",
+	"moq-metadata-pub",
 	"moq-sub",
 	"moq-api",
 	"moq-clock-ietf",

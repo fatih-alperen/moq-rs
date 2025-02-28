@@ -1117,6 +1117,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "moq-metadata-pub"
+version = "0.8.3"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "chrono",
+ "clap",
+ "env_logger",
+ "log",
+ "moq-catalog",
+ "moq-native-ietf",
+ "moq-transport",
+ "mp4",
+ "rfc6381-codec",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+]
+
+[[package]]
 name = "moq-native-ietf"
 version = "0.5.3"
 dependencies = [
