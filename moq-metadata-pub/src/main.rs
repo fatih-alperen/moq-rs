@@ -36,7 +36,7 @@ pub struct Cli {
     pub url: Url,
 
     /// The name of the broadcast
-    #[arg(long)]
+    #[arg(long, default_value = "clock")]
     pub name: String,
 
     /// The TLS configuration.
@@ -59,8 +59,9 @@ async fn main() -> anyhow::Result<()> {
     let (writer, _, reader) = serve::Tracks::new(Tuple::from_utf8_path(&cli.name)).produce();
     let media = Media::new(writer)?;
 
-    let (mut md_writer, _, md_reader) = serve::Tracks::new(Tuple::from_utf8_path(&format!("{}_meta", cli.name))).produce();
-    let metadata_track = md_writer.create(&format!("{}_meta", cli.name)).unwrap();
+    
+    let (mut md_writer, _, md_reader) = serve::Tracks::new(Tuple::from_utf8_path(&cli.name)).produce();
+    let metadata_track = md_writer.create(("now")).unwrap();
     let clock = clock::Publisher::new(metadata_track.groups()?);
 
 
@@ -72,9 +73,9 @@ async fn main() -> anyhow::Result<()> {
     })?;
 
     log::info!("connecting to relay: url={}", cli.url);
-    let session = quic.client.connect(&cli.url).await?;
+    let session0 = quic.client.connect(&cli.url).await?;
 
-    let (session, mut publisher) = Publisher::connect(session)
+    let (session, mut publisher) = Publisher::connect(session0.clone())
         .await
         .context("failed to create MoQ Transport publisher")?;
 
@@ -84,7 +85,8 @@ async fn main() -> anyhow::Result<()> {
             res.context("media error")?
         },
         res = clock.run() => res.context("clock error")?,
-        res = publisher.announce(reader) => res.context("publisher error")?,
+        res = publisher.announce(md_reader) => res.context("publisher error")?,
+        // res = publisher2.announce(reader) => res.context("publisher error")?,
     }
 
     Ok(())
@@ -99,21 +101,5 @@ async fn run_media(mut media: Media) -> anyhow::Result<()> {
             .await
             .context("failed to read from stdin")?;
         media.parse(&mut buf).context("failed to parse media")?;
-    }
-}
-
-// lets publish time for metadata for now
-async fn run_metadata(mut metadata_track: impl tokio::io::AsyncWrite + Unpin) -> anyhow::Result<()> {
-    let mut counter: u64 = 0;
-
-    loop {
-        let metadata = format!("{}\n", counter); // Convert number to string with newline
-        metadata_track
-            .write_all(metadata.as_bytes())
-            .await
-            .context("failed to write metadata")?;
-
-        counter += 1;
-        sleep(Duration::from_secs(1)).await; // Wait for 1 second
     }
 }

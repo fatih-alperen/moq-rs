@@ -31,7 +31,7 @@ pub struct Cli {
     #[arg(long)]
     pub publish: bool,
 
-    /// The name of the clock track.
+    /// The name of the broadcast.
     #[arg(long, default_value = "clock")]
     pub namespace: String,
 
